@@ -24,5 +24,11 @@
 </head>
 <body>
     <h1>Whale Watching</h1>
+    <button id="addToCartButton">Add to Cart</button>
+    <script type="text/javascript">
+    document.getElementById('addToCartButton').addEventListener('click', function() {
+        fbq('track', 'AddToCart');
+    }, false);
+    </script>
 </body>
 </html>
