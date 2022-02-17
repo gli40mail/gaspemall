@@ -30,5 +30,14 @@
         fbq('track', 'AddToCart');
     }, false);
     </script>
+    <button id="purchaseButton">Purchase</button>
+    <script type="text/javascript">
+    document.getElementById('purchaseButton').addEventListener('click', function() {
+        fbq('track', 'Purchase', {
+            value: 100,
+            currency: 'USD',
+    });
+    }, false);
+    </script>
 </body>
 </html>
