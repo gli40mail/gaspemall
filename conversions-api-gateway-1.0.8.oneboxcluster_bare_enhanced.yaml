@@ -1,0 +1,313 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: "Cloudformation for Conversions API Gateway v1.0.8"
+Parameters:
+  AdminEmail:
+    Description: "Email address to sign in to Conversions API Gateway"
+    Type: String
+    AllowedPattern: "^[\\w!#$%&'*+/=?^`{|}~-]+(:?.[\\w!#$%&'*+/=?^`{|}~-]+)*@(?:[a-zA-Z0-9](?:[a-zA-Z0-9-]*[a-zA-Z0-9])?.)+[a-zA-Z0-9](?:[a-zA-Z0-9-]*[a-zA-Z0-9])?$"
+    ConstraintDescription: "Please input an email address to sign in to Conversions API Gateway"
+  
+  KeyName:
+    Description: "Name of an existing EC2 KeyPair to enable SSH access to the instance. Please follow this guide: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-key-pairs.html#prepare-key-pair to create at least one key pair before selection."
+    Type: AWS::EC2::KeyPair::KeyName
+    AllowedPattern: "^(?!\\s*$).+"
+    ConstraintDescription: "Please follow this guide: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-key-pairs.html#prepare-key-pair to create at least one key pair before selection."
+  
+  InstanceType:
+    Description: "EC2 instance type for hosting Conversions API Gateway"
+    Type: String
+    Default: t3.large
+    AllowedValues:
+    - t3.large
+    - t3.xlarge
+    - m5a.large
+    - m5a.xlarge
+    - m5.large
+    - m5.xlarge
+    ConstraintDescription: "Must be a valid EC2 instance type."
+  AdminPassword:
+    Description: "Password to sign in to Conversions API Gateway (at least 12 characters, please write it down in safe place)"
+    Type: String
+    NoEcho: true
+    AllowedPattern: "^[a-zA-Z0-9 ~!@#$%^&*_+=-]{12,}$"
+    ConstraintDescription: "Only Alphanumeric characters and ~!@#$%^&*_+=- symbols can be used in password. Password must be at least 12 characters."
+  ConfirmAdminPassword:
+    Description: "Please confirm the admin password here"
+    Type: String
+    NoEcho: true
+    AllowedPattern: "^[a-zA-Z0-9 ~!@#$%^&*_+=-]{12,}$"
+    ConstraintDescription: "Only Alphanumeric characters and ~!@#$%^&*_+=- symbols can be used in password. Password must be at least 12 characters."
+  
+  ProvisioningData:
+    Description: "DO NOT EDIT! Provisioning data for setting up your Conversions API Gateway. This field should already be populated."
+    Type: String
+  
+  AdminDomainName:
+    Description: "DO NOT EDIT! Subdomain used for Conversions API Gateway"
+    Type: String
+  
+  
+  
+  
+  Telemetry:
+    Description: 'Would you like to periodically send data about the Conversions API Gateway installation to Facebook? This data will be used to monitor the effect of each released version and provide support personnel with additional context when troubleshooting problems'
+    Type: String
+    Default: "Yes"
+    AllowedValues:
+      - "Yes"
+      - "No"
+  
+  
+
+Mappings:
+  AWSInstanceType2Arch: 
+    t3.large:
+      Arch: HVM64
+    t3.xlarge:
+      Arch: HVM64
+    m5a.large:
+      Arch: HVM64
+    m5a.xlarge:
+      Arch: HVM64
+    m5.large:
+      Arch: HVM64
+    m5.xlarge:
+      Arch: HVM64
+
+  
+  AWSRegionArch2AMI:     
+    us-east-1: # US East (N. Virginia)
+      HVM64: "ami-0f8912ae63211acef"
+    us-east-2: # US East (Ohio)
+      HVM64: "ami-02034e287e18606a8"
+    us-west-1: # US West (N. California)
+      HVM64: "ami-056158f4142031a65"
+    us-west-2: # US West (Oregon)
+      HVM64: "ami-041d463c70be25233"
+    af-south-1: # Africa (Cape Town)
+      HVM64: "ami-006168320a280ba42"
+    ap-south-1: # Asia Pacific (Mumbai)
+      HVM64: "ami-04d6f357e00cf012e"
+    ap-northeast-2: # Asia Pacific (Seoul)
+      HVM64: "ami-00736c1d68a8254b5"
+    ap-southeast-1: # Asia Pacific (Singapore)
+      HVM64: "ami-0d45c718b9c9e0ea1"
+    ap-southeast-2: # Asia Pacific (Sydney)
+      HVM64: "ami-09a7b300054ed033d"
+    ap-northeast-1: # Asia Pacific (Tokyo)
+      HVM64: "ami-02964a655dbbbfde7"
+    ca-central-1: # Canada (Central)
+      HVM64: "ami-0abc0f7a5ea475185"
+    eu-central-1: # Europe (Frankfurt)
+      HVM64: "ami-07a503a1fb6991168"
+    eu-west-1: # Europe (Ireland)
+      HVM64: "ami-059e4336e853adbe6"
+    eu-west-2: # Europe (London)
+      HVM64: "ami-01ebf412395bba8f2"
+    eu-south-1: # Europe (Milan)
+      HVM64: "ami-0dbfb4260f0bab747"
+    eu-west-3: # Europe (Paris)
+      HVM64: "ami-05018d5858f945311"
+    eu-north-1: # Europe (Stockholm)
+      HVM64: "ami-02c3a7c68383ee83f"
+    me-south-1: # Middle East (Bahrain)
+      HVM64: "ami-0d738499a0af8f600"
+    sa-east-1: # South America (São Paulo)
+      HVM64: "ami-0be8296982b213fe3"
+
+  
+Rules:
+  ConfirmPasswordsMatch:
+    Assertions:
+      - Assert:
+          Fn::Equals:
+            - !Ref AdminPassword
+            - !Ref ConfirmAdminPassword
+        AssertDescription: Passwords do not match
+Resources:
+  
+  ConversionsApiGatewayIamRole:
+    
+    Type: AWS::IAM::Role
+    Properties:
+      Path: "/conversions-api-gateway/"
+      Description: "Instance Profile Role for Conversions API Gateway Hosts"
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - ec2.amazonaws.com
+            Action:
+              - 'sts:AssumeRole'
+      Policies:
+        - PolicyName: !Sub ${AWS::StackName}-Ec2InstancePolicy
+          PolicyDocument:
+              Version: '2012-10-17'
+              Statement:
+                - Effect: Allow
+                  Action:
+                    - logs:CreateLogGroup
+                    - logs:CreateLogStream
+                    - logs:PutLogEvents
+                    - logs:PutRetentionPolicy
+                  Resource:
+                    - !Sub arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:${AdminDomainName}/conversions-api-gateway
+                    - !Sub arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:${AdminDomainName}/conversions-api-gateway:log-stream:*
+  ConversionsApiGatewayInstanceProfile:
+    
+    Type: "AWS::IAM::InstanceProfile"
+    Properties:
+      InstanceProfileName: !Join ["-", ["ConversionsApiGatewayInstanceProfile", !Ref AWS::Region, !Select [4, !Split ['-', !Select [2, !Split ['/', !Ref AWS::StackId]]]]]]
+      Path: "/conversions-api-gateway/"
+      Roles:
+        - Ref: "ConversionsApiGatewayIamRole"
+  
+  ConversionsApiGatewaySecurityGroup:
+    
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: "Enable limited SSH access (through AWS IP address ranges - https://docs.aws.amazon.com/general/latest/gr/aws-ip-ranges.html) and http(s) access"
+      SecurityGroupIngress:
+      
+      - IpProtocol: tcp
+        FromPort: "22"
+        ToPort: "22"
+        CidrIp: "0.0.0.0/0"
+      - IpProtocol: tcp
+        FromPort: "80"
+        ToPort: "80"
+        CidrIp: "0.0.0.0/0"
+      - IpProtocol: tcp
+        FromPort: "80"
+        ToPort: "80"
+        CidrIpv6: "::/0"
+      - IpProtocol: tcp
+        FromPort: "443"
+        ToPort: "443"
+        CidrIp: "0.0.0.0/0"
+      
+      - IpProtocol: tcp
+        FromPort: "443"
+        ToPort: "443"
+        CidrIpv6: "::/0"
+      
+  
+  ConversionsApiGatewayEC2Instance: 
+    Type: AWS::EC2::Instance
+    Properties:
+      ImageId:
+        Fn::FindInMap:
+        - AWSRegionArch2AMI
+        - Ref: AWS::Region
+        - Fn::FindInMap:
+          - AWSInstanceType2Arch
+          - Ref: InstanceType
+          - Arch
+      InstanceType:
+        !Ref InstanceType
+      SecurityGroupIds: [ !GetAtt "ConversionsApiGatewaySecurityGroup.GroupId" ]
+      
+      KeyName:
+        !Ref KeyName
+      
+      
+      IamInstanceProfile:
+        
+        !Ref ConversionsApiGatewayInstanceProfile
+        
+      
+      
+      UserData:
+        Fn::Base64:
+          Fn::Sub:
+          - "#cloud-config\nruncmd:\n - [ wget, \"https://conversions-api-gateway-release-production.s3.amazonaws.com/conversions-api-gateway-1.0.8_provision_web.run\", -O, \"/root/conversions-api-gateway-1.0.8_provision_web.run\", \"--referer\", \"${cb_domain}\" ]\n - [ chmod, +x, /root/conversions-api-gateway-1.0.8_provision_web.run ]\n - [ /root/conversions-api-gateway-1.0.8_provision_web.run, --target, /opt/cloudbridge_provision_web ]\n - [ wget, \"https://conversions-api-gateway-release-production.s3.amazonaws.com/conversions-api-gateway-1.0.8.run\", -O, \"/root/conversions-api-gateway-1.0.8.run\", \"--referer\", \"${cb_domain}\" ]\n - [ chmod, +x, /root/conversions-api-gateway-1.0.8.run ]\n - [ /root/conversions-api-gateway-1.0.8.run, --target, /opt/cloudbridge, --, '${cb_template}', '${cb_client_email}', '${cb_ui_passwd}', '${cb_provisioning_data}', '${cb_arg}', '${cloudbridge_active_telemetry_enabled}', '${node_count}', '${image_tag}', '${custom_ami_enabled}' , 'conversions-api-gateway-release-production', '${cb_domain}', '${node_type}', '${cluster_token}']"
+          - "cb_domain":
+              Ref: AdminDomainName
+            "cb_ui_passwd":
+              Ref: AdminPassword
+            "cloudbridge_active_telemetry_enabled":
+              Ref: Telemetry
+            
+            "cb_provisioning_data":
+              Ref: ProvisioningData
+            "cb_template": "oneboxcluster_bare"
+            "image_tag": "prod"
+            "cb_client_email":
+              Ref: AdminEmail
+            "cb_arg": ""
+            "node_count": 1
+            "custom_ami_enabled": true
+            "node_type": "master"
+            "cluster_token": !Join ['', !Split ['-', !Select [2, !Split ['/', !Ref AWS::StackId]]]]
+      
+      BlockDeviceMappings:
+        - DeviceName: "/dev/sda1"
+          Ebs:
+            VolumeSize: 50
+        - DeviceName: "/dev/sda2"
+          Ebs:
+            VolumeSize: 50
+            
+      Tags:
+        -
+          Key: "Name"
+          Value: !Join ["-", [!Ref AWS::StackName, "cb-bi-t-ajrdkl"]]
+  
+  
+  
+  
+  ConversionsApiGatewayRecoveryTestAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmDescription: Trigger a recovery when instance status check fails for 2
+        consecutive minutes.
+      Namespace: AWS/EC2
+      MetricName: StatusCheckFailed_Instance
+      Statistic: Minimum
+      Period: '60'
+      EvaluationPeriods: '2'
+      ComparisonOperator: GreaterThanThreshold
+      Threshold: '0'
+      AlarmActions: [ !Sub "arn:aws:automate:${AWS::Region}:ec2:reboot" ]
+      Dimensions:
+      - Name: InstanceId
+        Value:
+          Ref: ConversionsApiGatewayEC2Instance
+Outputs:
+  CallToAction:
+    Description: "Please configure your subdomain for Conversion API Gateway"
+    Value:
+      Fn::Join:
+      - ""
+      - 
+        - "On your DNS Provider, create an A record to associate "
+        - Ref: AdminDomainName
+        
+        - " with "
+        - Fn::GetAtt:
+          - ConversionsApiGatewayEC2Instance
+          - PublicIp
+        
+        
+  ConversionsApiGatewayInstanceURL:
+    Description: "URL for newly created Conversions API Gateway Instance"
+    Value:
+      Fn::Join:
+      - ""
+      - - "http://"
+        
+        - Fn::GetAtt:
+          - ConversionsApiGatewayEC2Instance
+          - PublicDnsName
+        
+        - "/"
+        - Fn::Base64:
+            Fn::Select:
+              - 1
+              - Fn::Split:
+                - "-"
+                - !Ref ConversionsApiGatewayEC2Instance
+  
+  
